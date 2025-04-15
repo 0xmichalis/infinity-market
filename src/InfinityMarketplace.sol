@@ -53,12 +53,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         NFTType nftType;
     }
 
-    /// @notice Mapping to track offers: contract => tokenId => offer details
-    mapping(bytes32 => Offer) public offers;
-
-    /// @notice Mapping to track deposited token balances: owner => contract => tokenId => amount
-    mapping(address => mapping(address => mapping(uint256 => Deposit))) public deposits;
-
     /// @notice Event emitted when a buy offer is created
     event OfferCreated(bytes32 offerHash);
 
@@ -68,11 +62,18 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     /// @notice Event emitted when a trade is executed
     event OfferSettled(bytes32 offerHash);
 
+    /// @notice Mapping to track offers: contract => tokenId => offer details
+    mapping(bytes32 => Offer) public offers;
+
+    /// @notice Mapping to track deposited token balances: owner => contract => tokenId => amount
+    mapping(address => mapping(address => mapping(uint256 => Deposit))) public deposits;
+
     /**
      * @notice Creates a buy offer for a specific NFT
      * @param nftContract The address of the NFT contract
      * @param tokenId The ID of the token
      * @param amount The amount of tokens (1 for ERC721)
+     * @param offerType The type of offer (Buy or Sell)
      */
     function createOffer(
         address nftContract,
@@ -238,6 +239,11 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
+    /**
+     * @notice Returns the hash of an offer
+     * @param offer The offer to hash
+     * @return hash The hash of the offer
+     */
     function getOfferHash(Offer memory offer) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
@@ -274,11 +280,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         }
     }
 
-    /**
-     * @notice Safely sends ETH to an address
-     * @param recipient The address to send ETH to
-     * @param amount The amount of ETH to send
-     */
     function _sendValue(address recipient, uint256 amount) internal {
         // slither-disable-next-line arbitrary-send-eth
         (bool success,) = recipient.call{value: amount}("");
