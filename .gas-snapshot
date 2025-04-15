@@ -1,5 +1,5 @@
-InfinityMarketplaceTest:test_AcceptBuyOffer() (gas: 236907)
-InfinityMarketplaceTest:test_AcceptSellOffer() (gas: 255294)
+InfinityMarketplaceTest:test_AcceptBuyOffer() (gas: 236816)
+InfinityMarketplaceTest:test_AcceptSellOffer() (gas: 255203)
 InfinityMarketplaceTest:test_CancelBuyOffer() (gas: 122222)
 InfinityMarketplaceTest:test_CancelSellOffer() (gas: 236809)
 InfinityMarketplaceTest:test_CreateBuyOffer() (gas: 143454)
