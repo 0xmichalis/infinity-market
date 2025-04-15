@@ -257,6 +257,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         );
     }
 
+    // TODO: Need to support partial ERC1155 fills better
     function _acceptOffer(Offer memory offer, address seller, address buyer) internal {
         Deposit storage deposit = deposits[seller][offer.nftContract][offer.tokenId];
         require(deposit.balance >= offer.amount, InsufficientDeposit());
