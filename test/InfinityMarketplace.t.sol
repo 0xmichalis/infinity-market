@@ -305,7 +305,7 @@ contract InfinityMarketplaceTest is Test {
 
     function test_RevertWhen_CreateBuyOfferWithoutPayment() public {
         vm.startPrank(bob);
-        vm.expectRevert("Missing payment");
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.MissingPayment.selector));
         marketplace.createOffer(
             address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
         );
@@ -314,7 +314,7 @@ contract InfinityMarketplaceTest is Test {
 
     function test_RevertWhen_CreateSellOfferWithoutDeposit() public {
         vm.startPrank(alice);
-        vm.expectRevert("Insufficient deposit");
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InsufficientDeposit.selector));
         marketplace.createOffer(
             address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
         );
@@ -341,8 +341,33 @@ contract InfinityMarketplaceTest is Test {
 
         // Try to cancel as Alice
         vm.startPrank(alice);
-        vm.expectRevert("Not offer creator");
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.NotOfferCreator.selector));
         marketplace.cancelOffer(offerHash);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_CreateOfferWithZeroPrice() public {
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidPrice.selector));
+        marketplace.createOffer(address(erc721), TOKEN_ID, 0, 1, InfinityMarketplace.OfferType.Buy);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_CreateOfferWithZeroAmount() public {
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidAmount.selector));
+        marketplace.createOffer{value: PRICE}(
+            address(erc721), TOKEN_ID, PRICE, 0, InfinityMarketplace.OfferType.Buy
+        );
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_CreateOfferWithInvalidNFTContract() public {
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidNFTContract.selector));
+        marketplace.createOffer{value: PRICE}(
+            address(0), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+        );
         vm.stopPrank();
     }
 }

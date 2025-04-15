@@ -14,6 +14,16 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * @dev This marketplace allows users to deposit NFTs first and then create sell offers or match existing buy offers
  */
 contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGuard {
+    /// @notice Marketplace errors
+    error InvalidNFTContract();
+    error InvalidAmount();
+    error InvalidPrice();
+    error MissingPayment();
+    error UnnecessaryPayment();
+    error InsufficientDeposit();
+    error NotOfferCreator();
+    error ETHTransferFailed();
+
     /// @notice Enum to represent the type of NFT
     enum NFTType {
         ERC721,
@@ -87,15 +97,15 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         uint256 amount,
         OfferType offerType
     ) external payable {
-        require(nftContract != address(0), "Invalid NFT contract");
-        require(amount != 0, "Invalid amount");
-        require(price != 0, "Invalid price");
+        require(nftContract != address(0), InvalidNFTContract());
+        require(amount != 0, InvalidAmount());
+        require(price != 0, InvalidPrice());
         if (offerType == OfferType.Buy) {
-            require(price == msg.value, "Missing payment");
+            require(price == msg.value, MissingPayment());
         } else {
-            require(msg.value == 0, "Unnecessary payment");
+            require(msg.value == 0, UnnecessaryPayment());
             require(
-                deposits[msg.sender][nftContract][tokenId].balance >= amount, "Insufficient deposit"
+                deposits[msg.sender][nftContract][tokenId].balance >= amount, InsufficientDeposit()
             );
         }
 
@@ -119,7 +129,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      */
     function cancelOffer(bytes32 offerHash) external nonReentrant {
         Offer memory offer = offers[offerHash];
-        require(offer.maker == msg.sender, "Not offer creator");
+        require(offer.maker == msg.sender, NotOfferCreator());
 
         delete offers[offerHash];
 
@@ -149,7 +159,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      */
     function withdrawNFT(address nftContract, uint256 tokenId, uint256 amount) external {
         Deposit memory deposit = deposits[msg.sender][nftContract][tokenId];
-        require(deposit.balance >= amount, "Insufficient balance");
+        require(deposit.balance >= amount, InsufficientDeposit());
 
         delete deposits[msg.sender][nftContract][tokenId];
 
@@ -170,10 +180,10 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         Offer memory offer = offers[offerHash];
 
         if (offer.offerType == OfferType.Buy) {
-            require(msg.value == 0, "Invalid price");
+            require(msg.value == 0, InvalidPrice());
             _acceptOffer(offer, msg.sender, offer.maker);
         } else {
-            require(msg.value == offer.price, "Invalid price");
+            require(msg.value == offer.price, InvalidPrice());
             _acceptOffer(offer, offer.maker, msg.sender);
         }
 
@@ -265,7 +275,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
 
     function _acceptOffer(Offer memory offer, address seller, address buyer) internal {
         Deposit storage deposit = deposits[seller][offer.nftContract][offer.tokenId];
-        require(deposit.balance >= offer.amount, "Insufficient balance");
+        require(deposit.balance >= offer.amount, InsufficientDeposit());
 
         deposit.balance -= offer.amount;
 
@@ -291,6 +301,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     function _sendValue(address recipient, uint256 amount) internal {
         // slither-disable-next-line arbitrary-send-eth
         (bool success,) = recipient.call{value: amount}("");
-        require(success, "ETH transfer failed");
+        require(success, ETHTransferFailed());
     }
 }
