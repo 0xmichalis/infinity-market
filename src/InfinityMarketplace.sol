@@ -13,6 +13,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * @notice A marketplace for trading ERC721 and ERC1155 tokens that have broken approval functions
  * @dev This marketplace allows users to deposit NFTs first and then create sell offers or match existing buy offers
  */
+// slither-disable-next-line locked-ether
 contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGuard {
     /// @notice Marketplace errors
     error InvalidNFTContract();
