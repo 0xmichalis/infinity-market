@@ -59,23 +59,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     /// @notice Mapping to track deposited token balances: owner => contract => tokenId => amount
     mapping(address => mapping(address => mapping(uint256 => Deposit))) public deposits;
 
-    /// @notice Event emitted when an NFT is deposited
-    event Deposited(
-        address indexed nftContract,
-        uint256 indexed tokenId,
-        address indexed depositor,
-        uint256 amount,
-        NFTType nftType
-    );
-
-    /// @notice Event emitted when an NFT is withdrawn
-    event Withdrawn(
-        address indexed nftContract,
-        uint256 indexed tokenId,
-        address indexed withdrawer,
-        uint256 amount
-    );
-
     /// @notice Event emitted when a buy offer is created
     event OfferCreated(bytes32 offerHash);
 
@@ -169,8 +152,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         } else {
             IERC1155(nftContract).safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
         }
-
-        emit Withdrawn(nftContract, tokenId, msg.sender, deposit.balance);
     }
 
     /**
@@ -214,8 +195,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     {
         deposits[from][msg.sender][tokenId] = Deposit({balance: 1, nftType: NFTType.ERC721});
 
-        emit Deposited(msg.sender, tokenId, from, 1, NFTType.ERC721);
-
         return IERC721Receiver.onERC721Received.selector;
     }
 
@@ -255,8 +234,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         bytes calldata
     ) public override returns (bytes4) {
         deposits[from][msg.sender][tokenId] = Deposit({balance: value, nftType: NFTType.ERC1155});
-
-        emit Deposited(msg.sender, tokenId, from, value, NFTType.ERC1155);
 
         return IERC1155Receiver.onERC1155Received.selector;
     }

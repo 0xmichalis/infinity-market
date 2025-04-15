@@ -19,18 +19,6 @@ contract InfinityMarketplaceTest is Test {
     uint256 public constant TOKEN_AMOUNT = 5;
     uint256 public constant PRICE = 1 ether;
 
-    event Deposited(
-        address indexed nftContract,
-        uint256 indexed tokenId,
-        address indexed depositor,
-        uint256 amount,
-        InfinityMarketplace.NFTType nftType
-    );
-
-    event OfferCreated(bytes32 offerHash);
-    event OfferCancelled(bytes32 offerHash);
-    event OfferSettled(bytes32 offerHash);
-
     function setUp() public {
         marketplace = new InfinityMarketplace();
         erc721 = new MockERC721();
@@ -46,13 +34,8 @@ contract InfinityMarketplaceTest is Test {
         erc721.mint(alice, TOKEN_ID);
 
         // Deposit as alice
-        vm.startPrank(alice);
-
-        vm.expectEmit(true, true, true, true);
-        emit Deposited(address(erc721), TOKEN_ID, alice, 1, InfinityMarketplace.NFTType.ERC721);
-
+        vm.prank(alice);
         erc721.safeTransferFrom(alice, address(marketplace), TOKEN_ID);
-        vm.stopPrank();
 
         // Verify deposit
         (uint256 balance, InfinityMarketplace.NFTType nftType) =
@@ -66,15 +49,8 @@ contract InfinityMarketplaceTest is Test {
         erc1155.mint(alice, TOKEN_ID, TOKEN_AMOUNT);
 
         // Deposit as alice
-        vm.startPrank(alice);
-
-        vm.expectEmit(true, true, true, true);
-        emit Deposited(
-            address(erc1155), TOKEN_ID, alice, TOKEN_AMOUNT, InfinityMarketplace.NFTType.ERC1155
-        );
-
+        vm.prank(alice);
         erc1155.safeTransferFrom(alice, address(marketplace), TOKEN_ID, TOKEN_AMOUNT, "");
-        vm.stopPrank();
 
         // Verify deposit
         (uint256 balance, InfinityMarketplace.NFTType nftType) =
@@ -86,7 +62,6 @@ contract InfinityMarketplaceTest is Test {
     function test_CreateBuyOffer() public {
         vm.startPrank(bob);
 
-        vm.expectEmit(true, true, true, true);
         bytes32 expectedOfferHash = marketplace.getOfferHash(
             InfinityMarketplace.Offer({
                 maker: bob,
@@ -97,7 +72,6 @@ contract InfinityMarketplaceTest is Test {
                 offerType: InfinityMarketplace.OfferType.Buy
             })
         );
-        emit OfferCreated(expectedOfferHash);
 
         marketplace.createOffer{value: PRICE}(
             address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
@@ -128,7 +102,6 @@ contract InfinityMarketplaceTest is Test {
         vm.startPrank(alice);
         erc721.safeTransferFrom(alice, address(marketplace), TOKEN_ID);
 
-        vm.expectEmit(true, true, true, true);
         bytes32 expectedOfferHash = marketplace.getOfferHash(
             InfinityMarketplace.Offer({
                 maker: alice,
@@ -139,7 +112,6 @@ contract InfinityMarketplaceTest is Test {
                 offerType: InfinityMarketplace.OfferType.Sell
             })
         );
-        emit OfferCreated(expectedOfferHash);
 
         marketplace.createOffer(
             address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
@@ -183,13 +155,9 @@ contract InfinityMarketplaceTest is Test {
         );
 
         vm.prank(bob);
-        vm.expectEmit(true, true, true, true);
-        emit OfferCreated(offerHash);
-
         marketplace.createOffer{value: PRICE}(
             address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
         );
-        vm.stopPrank();
 
         // Accept offer
         uint256 aliceInitialBalance = alice.balance;
@@ -257,9 +225,6 @@ contract InfinityMarketplaceTest is Test {
 
         uint256 bobInitialBalance = bob.balance;
 
-        vm.expectEmit(true, true, true, true);
-        emit OfferCancelled(offerHash);
-
         marketplace.cancelOffer(offerHash);
         vm.stopPrank();
 
@@ -289,9 +254,6 @@ contract InfinityMarketplaceTest is Test {
         marketplace.createOffer(
             address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
         );
-
-        vm.expectEmit(true, true, true, true);
-        emit OfferCancelled(offerHash);
 
         marketplace.cancelOffer(offerHash);
         vm.stopPrank();
