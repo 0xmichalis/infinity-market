@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {InfinityMarketplace} from "../src/InfinityMarketplace.sol";
 import {MockERC721} from "./mocks/MockERC721.sol";
 import {MockERC1155} from "./mocks/MockERC1155.sol";
+import {MockContractWithoutReceive} from "./mocks/MockContractWithoutReceive.sol";
 
 contract InfinityMarketplaceTest is Test {
     InfinityMarketplace public marketplace;
@@ -342,6 +343,83 @@ contract InfinityMarketplaceTest is Test {
         assertEq(maker, address(0));
     }
 
+    function test_CancelSellOfferERC1155() public {
+        // Alice deposits 10 ERC1155 tokens
+        vm.startPrank(alice);
+        erc1155.mint(alice, TOKEN_ID, 10);
+        erc1155.setApprovalForAll(address(marketplace), true);
+        erc1155.safeTransferFrom(alice, address(marketplace), TOKEN_ID, 10, "");
+
+        // Create sell offer for 5 tokens
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: alice,
+                nftContract: address(erc1155),
+                tokenId: TOKEN_ID,
+                amount: 5,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Sell
+            })
+        );
+        marketplace.createOffer(
+            address(erc1155), TOKEN_ID, PRICE, 5, InfinityMarketplace.OfferType.Sell
+        );
+
+        // Cancel the offer
+        marketplace.cancelOffer(offerHash);
+        vm.stopPrank();
+
+        // Verify deposit balance is updated correctly
+        (uint256 balance, InfinityMarketplace.NFTType nftType) =
+            marketplace.deposits(alice, address(erc1155), TOKEN_ID);
+        assertEq(uint256(nftType), uint256(InfinityMarketplace.NFTType.ERC1155));
+        assertEq(balance, 5); // Should have 5 tokens remaining after 5 were returned
+
+        // Verify offer is deleted
+        (
+            address offerMaker,
+            address offerNftContract,
+            uint256 offerTokenId,
+            uint256 offerAmount,
+            uint256 offerPrice,
+            InfinityMarketplace.OfferType offerType
+        ) = marketplace.offers(offerHash);
+        assertEq(offerMaker, address(0));
+        assertEq(offerNftContract, address(0));
+        assertEq(offerTokenId, 0);
+        assertEq(offerAmount, 0);
+        assertEq(offerPrice, 0);
+        assertEq(uint8(offerType), 0);
+
+        // Verify tokens are split between Alice and marketplace
+        assertEq(erc1155.balanceOf(alice, TOKEN_ID), 5); // Tokens from cancelled offer
+        assertEq(erc1155.balanceOf(address(marketplace), TOKEN_ID), 5); // Remaining deposit
+    }
+
+    function test_withdrawNFT() public {
+        // Mint NFT to Alice
+        erc721.mint(alice, TOKEN_ID);
+
+        // Alice deposits NFT
+        vm.startPrank(alice);
+        erc721.safeTransferFrom(alice, address(marketplace), TOKEN_ID);
+
+        // Verify deposit exists
+        (uint256 balance, InfinityMarketplace.NFTType nftType) =
+            marketplace.deposits(alice, address(erc721), TOKEN_ID);
+        assertEq(balance, 1);
+        assertEq(uint256(nftType), uint256(InfinityMarketplace.NFTType.ERC721));
+
+        // Withdraw NFT
+        marketplace.withdrawNFT(address(erc721), TOKEN_ID, 1);
+        vm.stopPrank();
+
+        // Verify NFT is back with Alice and deposit is cleared
+        assertEq(erc721.ownerOf(TOKEN_ID), alice);
+        (uint256 finalBalance,) = marketplace.deposits(alice, address(erc721), TOKEN_ID);
+        assertEq(finalBalance, 0);
+    }
+
     function test_PartialWithdrawERC1155() public {
         // Mint tokens to alice
         erc1155.mint(alice, TOKEN_ID, TOKEN_AMOUNT);
@@ -554,28 +632,6 @@ contract InfinityMarketplaceTest is Test {
         assertEq(balance, 0);
     }
 
-    function test_withdrawNFT() public {
-        // Setup: Deposit ERC721
-        erc721.mint(alice, TOKEN_ID);
-        vm.startPrank(alice);
-        erc721.safeTransferFrom(alice, address(marketplace), TOKEN_ID);
-
-        // Verify initial deposit
-        (uint256 initialBalance, InfinityMarketplace.NFTType nftType) =
-            marketplace.deposits(alice, address(erc721), TOKEN_ID);
-        assertEq(initialBalance, 1);
-        assertEq(uint256(nftType), uint256(InfinityMarketplace.NFTType.ERC721));
-
-        // Withdraw NFT
-        marketplace.withdrawNFT(address(erc721), TOKEN_ID, 1);
-        vm.stopPrank();
-
-        // Verify NFT was withdrawn and deposit was deleted
-        assertEq(erc721.ownerOf(TOKEN_ID), alice);
-        (uint256 finalBalance,) = marketplace.deposits(alice, address(erc721), TOKEN_ID);
-        assertEq(finalBalance, 0);
-    }
-
     function test_RevertWhen_AcceptOfferWithInsufficientDeposit() public {
         // Setup: Alice deposits 1 ERC1155 token
         erc1155.mint(alice, TOKEN_ID, 1);
@@ -641,5 +697,46 @@ contract InfinityMarketplaceTest is Test {
 
         (uint256 balance,) = marketplace.deposits(alice, address(erc1155), TOKEN_ID);
         assertEq(balance, TOKEN_AMOUNT - offerAmount, "Deposit not updated");
+    }
+
+    function test_RevertWhen_PaymentFailsOnAcceptOffer() public {
+        MockContractWithoutReceive mockContractWithoutReceive = new MockContractWithoutReceive();
+
+        // Mint NFT to the contract that can't receive ETH
+        erc721.mint(address(mockContractWithoutReceive), TOKEN_ID);
+
+        // Contract deposits NFT
+        vm.startPrank(address(mockContractWithoutReceive));
+        erc721.safeTransferFrom(address(mockContractWithoutReceive), address(marketplace), TOKEN_ID);
+
+        // Create sell offer from contract that can't receive ETH
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: address(mockContractWithoutReceive),
+                nftContract: address(erc721),
+                tokenId: TOKEN_ID,
+                amount: 1,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Sell
+            })
+        );
+        marketplace.createOffer(
+            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+        );
+        vm.stopPrank();
+
+        // Try to accept offer - should fail because contract can't receive ETH payment
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.PaymentFailed.selector));
+        marketplace.acceptOffer{value: PRICE}(offerHash, 1);
+        vm.stopPrank();
+
+        // Verify state remains unchanged
+        assertEq(erc721.ownerOf(TOKEN_ID), address(marketplace), "NFT ownership changed");
+        (uint256 balance,) =
+            marketplace.deposits(address(mockContractWithoutReceive), address(erc721), TOKEN_ID);
+        assertEq(balance, 1, "Deposit changed");
+        (address maker,,,,,) = marketplace.offers(offerHash);
+        assertEq(maker, address(mockContractWithoutReceive), "Offer was removed");
     }
 }
