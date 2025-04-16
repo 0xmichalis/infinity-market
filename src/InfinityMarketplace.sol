@@ -155,7 +155,14 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         Deposit memory deposit = deposits[msg.sender][nftContract][tokenId];
         require(deposit.balance >= amount, InsufficientDeposit());
 
-        delete deposits[msg.sender][nftContract][tokenId];
+        if (deposit.balance == amount) {
+            delete deposits[msg.sender][nftContract][tokenId];
+        } else {
+            // we just checked this above
+            unchecked {
+                deposits[msg.sender][nftContract][tokenId].balance = deposit.balance - amount;
+            }
+        }
 
         if (deposit.nftType == NFTType.ERC721) {
             IERC721(nftContract).safeTransferFrom(address(this), msg.sender, tokenId);

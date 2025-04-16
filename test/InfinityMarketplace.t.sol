@@ -332,4 +332,33 @@ contract InfinityMarketplaceTest is Test {
         );
         vm.stopPrank();
     }
+
+    function test_PartialWithdrawERC1155() public {
+        // Mint tokens to alice
+        erc1155.mint(alice, TOKEN_ID, TOKEN_AMOUNT);
+
+        // Deposit as alice
+        vm.startPrank(alice);
+        erc1155.safeTransferFrom(alice, address(marketplace), TOKEN_ID, TOKEN_AMOUNT, "");
+
+        // Verify initial deposit
+        (uint256 initialBalance, InfinityMarketplace.NFTType nftType) =
+            marketplace.deposits(alice, address(erc1155), TOKEN_ID);
+        assertEq(initialBalance, TOKEN_AMOUNT);
+        assertEq(uint256(nftType), uint256(InfinityMarketplace.NFTType.ERC1155));
+
+        // Withdraw half of the tokens
+        uint256 withdrawAmount = TOKEN_AMOUNT / 2;
+        marketplace.withdrawNFT(address(erc1155), TOKEN_ID, withdrawAmount);
+        vm.stopPrank();
+
+        // Verify remaining deposit
+        (uint256 remainingBalance, InfinityMarketplace.NFTType nftTypeAfter) =
+            marketplace.deposits(alice, address(erc1155), TOKEN_ID);
+        assertEq(remainingBalance, TOKEN_AMOUNT - withdrawAmount);
+        assertEq(uint256(nftTypeAfter), uint256(InfinityMarketplace.NFTType.ERC1155));
+
+        // Verify alice's token balance
+        assertEq(erc1155.balanceOf(alice, TOKEN_ID), withdrawAmount);
+    }
 }
