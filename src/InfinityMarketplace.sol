@@ -296,7 +296,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         }
     }
 
-    function _transferNFT(Offer memory offer, address to, NFTType nftType) internal {
+    function _transferNFT(Offer storage offer, address to, NFTType nftType) internal {
         if (nftType == NFTType.ERC721) {
             IERC721(offer.nftContract).safeTransferFrom(address(this), to, offer.tokenId);
         } else {
