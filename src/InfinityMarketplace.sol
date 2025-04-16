@@ -25,7 +25,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     error NotOfferCreator();
     error PaymentFailed();
     error OfferAlreadyExists();
-    error InsufficientOfferAmount();
 
     /// @notice Enum to represent the type of NFT
     enum NFTType {
@@ -180,7 +179,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         Offer storage offer = offers[offerHash];
 
         if (offer.offerType == OfferType.Buy) {
-            require(msg.value == 0, InvalidPrice());
+            require(msg.value == 0, UnnecessaryPayment());
             _acceptOffer(offer, offerHash, msg.sender, offer.maker, amount);
         } else {
             require(msg.value == offer.pricePerUnit * amount, InvalidPrice());
@@ -282,7 +281,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         uint256 depositBalance = deposit.balance;
         require(depositBalance >= amount, InsufficientDeposit());
         uint256 offerAmount = offer.amount;
-        require(offerAmount >= amount, InsufficientOfferAmount());
+        require(offerAmount >= amount, InvalidAmount());
 
         unchecked {
             // we just checked these above
