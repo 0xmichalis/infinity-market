@@ -23,7 +23,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     error UnnecessaryPayment();
     error InsufficientDeposit();
     error NotOfferCreator();
-    error ETHTransferFailed();
+    error PaymentFailed();
     error OfferAlreadyExists();
     error InsufficientOfferAmount();
 
@@ -311,6 +311,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     function _sendValue(address recipient, uint256 amount) internal {
         // slither-disable-next-line arbitrary-send-eth
         (bool success,) = recipient.call{value: amount}("");
-        require(success, ETHTransferFailed());
+        require(success, PaymentFailed());
     }
 }
