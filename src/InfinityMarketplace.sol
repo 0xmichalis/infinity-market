@@ -24,6 +24,8 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     error InsufficientDeposit();
     error NotOfferCreator();
     error ETHTransferFailed();
+    error OfferAlreadyExists();
+    error InsufficientOfferAmount();
 
     /// @notice Enum to represent the type of NFT
     enum NFTType {
@@ -43,7 +45,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         address nftContract;
         uint256 tokenId;
         uint256 amount;
-        uint256 price;
+        uint256 pricePerUnit;
         OfferType offerType;
     }
 
@@ -60,7 +62,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     event OfferCancelled(bytes32 offerHash);
 
     /// @notice Event emitted when a trade is executed
-    event OfferSettled(bytes32 offerHash);
+    event OfferSettled(bytes32 offerHash, uint256 amount);
 
     /// @notice Mapping to track offers: contract => tokenId => offer details
     mapping(bytes32 => Offer) public offers;
@@ -72,21 +74,22 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @notice Creates a buy offer for a specific NFT
      * @param nftContract The address of the NFT contract
      * @param tokenId The ID of the token
+     * @param pricePerUnit The price per unit of the NFT
      * @param amount The amount of tokens (1 for ERC721)
      * @param offerType The type of offer (Buy or Sell)
      */
     function createOffer(
         address nftContract,
         uint256 tokenId,
-        uint256 price,
+        uint256 pricePerUnit,
         uint256 amount,
         OfferType offerType
     ) external payable {
         require(nftContract != address(0), InvalidNFTContract());
         require(amount != 0, InvalidAmount());
-        require(price != 0, InvalidPrice());
+        require(pricePerUnit != 0, InvalidPrice());
         if (offerType == OfferType.Buy) {
-            require(price == msg.value, MissingPayment());
+            require(pricePerUnit * amount == msg.value, MissingPayment());
         } else {
             require(msg.value == 0, UnnecessaryPayment());
             require(
@@ -99,10 +102,15 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
             nftContract: nftContract,
             tokenId: tokenId,
             amount: amount,
-            price: price,
+            pricePerUnit: pricePerUnit,
             offerType: offerType
         });
         bytes32 offerHash = getOfferHash(offer);
+        // Require canceling an existing offer before recreating it.
+        // This can happen if the user wants to change the amount of the offer.
+        // TODO: Create a function specific to this use case to avoid having
+        // to cancel and recreate the offer.
+        require(offers[offerHash].maker == address(0), OfferAlreadyExists());
         offers[offerHash] = offer;
 
         emit OfferCreated(offerHash);
@@ -119,7 +127,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         delete offers[offerHash];
 
         if (offer.offerType == OfferType.Buy) {
-            _sendValue(offer.maker, offer.price);
+            _sendValue(offer.maker, offer.pricePerUnit * offer.amount);
         } else {
             Deposit memory deposit = deposits[offer.maker][offer.nftContract][offer.tokenId];
             if (deposit.nftType == NFTType.ERC721) {
@@ -142,6 +150,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @param tokenId The ID of the token
      * @param amount The amount of tokens to withdraw. 1 for ERC721, amount for ERC1155
      */
+    // TODO: Should not work once a sell offer is created?
     function withdrawNFT(address nftContract, uint256 tokenId, uint256 amount) external {
         Deposit memory deposit = deposits[msg.sender][nftContract][tokenId];
         require(deposit.balance >= amount, InsufficientDeposit());
@@ -158,19 +167,20 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     /**
      * @notice Executes a trade by accepting an offer
      * @param offerHash The hash of the offer
+     * @param amount The amount of tokens to accept
      */
-    function acceptOffer(bytes32 offerHash) external payable nonReentrant {
-        Offer memory offer = offers[offerHash];
+    function acceptOffer(bytes32 offerHash, uint256 amount) external payable nonReentrant {
+        Offer storage offer = offers[offerHash];
 
         if (offer.offerType == OfferType.Buy) {
             require(msg.value == 0, InvalidPrice());
-            _acceptOffer(offer, msg.sender, offer.maker);
+            _acceptOffer(offer, offerHash, msg.sender, offer.maker, amount);
         } else {
-            require(msg.value == offer.price, InvalidPrice());
-            _acceptOffer(offer, offer.maker, msg.sender);
+            require(msg.value == offer.pricePerUnit * amount, InvalidPrice());
+            _acceptOffer(offer, offerHash, offer.maker, msg.sender, amount);
         }
 
-        emit OfferSettled(offerHash);
+        emit OfferSettled(offerHash, amount);
     }
 
     /**
@@ -243,32 +253,40 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @notice Returns the hash of an offer
      * @param offer The offer to hash
      * @return hash The hash of the offer
+     * NOTE: Changing the amount of the offer for ERC1155 does not change the hash.
+     *       This is intentional to allow partial fills.
      */
     function getOfferHash(Offer memory offer) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                offer.maker,
-                offer.nftContract,
-                offer.tokenId,
-                offer.amount,
-                offer.price,
-                offer.offerType
+                offer.maker, offer.nftContract, offer.tokenId, offer.pricePerUnit, offer.offerType
             )
         );
     }
 
-    // TODO: Need to support partial ERC1155 fills better
-    function _acceptOffer(Offer memory offer, address seller, address buyer) internal {
+    function _acceptOffer(
+        Offer storage offer,
+        bytes32 offerHash,
+        address seller,
+        address buyer,
+        uint256 amount
+    ) internal {
         Deposit storage deposit = deposits[seller][offer.nftContract][offer.tokenId];
-        require(deposit.balance >= offer.amount, InsufficientDeposit());
+        require(deposit.balance >= amount, InsufficientDeposit());
+        require(offer.amount >= amount, InsufficientOfferAmount());
 
         unchecked {
-            // we just checked this above
-            deposit.balance -= offer.amount;
+            // we just checked these above
+            deposit.balance -= amount;
+            offer.amount -= amount;
         }
 
-        _sendValue(seller, offer.price);
+        _sendValue(seller, offer.pricePerUnit * amount);
         _transferNFT(offer, buyer, deposit.nftType);
+
+        if (offer.amount == 0) {
+            delete offers[offerHash];
+        }
     }
 
     function _transferNFT(Offer memory offer, address to, NFTType nftType) internal {

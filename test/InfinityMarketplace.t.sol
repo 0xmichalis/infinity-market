@@ -68,7 +68,7 @@ contract InfinityMarketplaceTest is Test {
                 nftContract: address(erc721),
                 tokenId: TOKEN_ID,
                 amount: 1,
-                price: PRICE,
+                pricePerUnit: PRICE,
                 offerType: InfinityMarketplace.OfferType.Buy
             })
         );
@@ -84,7 +84,7 @@ contract InfinityMarketplaceTest is Test {
             address nftContract,
             uint256 tokenId,
             uint256 amount,
-            uint256 price,
+            uint256 pricePerUnit,
             InfinityMarketplace.OfferType offerType
         ) = marketplace.offers(expectedOfferHash);
 
@@ -92,7 +92,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(nftContract, address(erc721));
         assertEq(tokenId, TOKEN_ID);
         assertEq(amount, 1);
-        assertEq(price, PRICE);
+        assertEq(pricePerUnit, PRICE);
         assertEq(uint256(offerType), uint256(InfinityMarketplace.OfferType.Buy));
     }
 
@@ -108,7 +108,7 @@ contract InfinityMarketplaceTest is Test {
                 nftContract: address(erc721),
                 tokenId: TOKEN_ID,
                 amount: 1,
-                price: PRICE,
+                pricePerUnit: PRICE,
                 offerType: InfinityMarketplace.OfferType.Sell
             })
         );
@@ -124,7 +124,7 @@ contract InfinityMarketplaceTest is Test {
             address nftContract,
             uint256 tokenId,
             uint256 amount,
-            uint256 price,
+            uint256 pricePerUnit,
             InfinityMarketplace.OfferType offerType
         ) = marketplace.offers(expectedOfferHash);
 
@@ -132,7 +132,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(nftContract, address(erc721));
         assertEq(tokenId, TOKEN_ID);
         assertEq(amount, 1);
-        assertEq(price, PRICE);
+        assertEq(pricePerUnit, PRICE);
         assertEq(uint256(offerType), uint256(InfinityMarketplace.OfferType.Sell));
     }
 
@@ -149,7 +149,7 @@ contract InfinityMarketplaceTest is Test {
                 nftContract: address(erc721),
                 tokenId: TOKEN_ID,
                 amount: 1,
-                price: PRICE,
+                pricePerUnit: PRICE,
                 offerType: InfinityMarketplace.OfferType.Buy
             })
         );
@@ -162,7 +162,7 @@ contract InfinityMarketplaceTest is Test {
         // Accept offer
         uint256 aliceInitialBalance = alice.balance;
         vm.prank(alice);
-        marketplace.acceptOffer(offerHash);
+        marketplace.acceptOffer(offerHash, 1);
 
         // Verify state changes
         assertEq(erc721.ownerOf(TOKEN_ID), bob);
@@ -184,7 +184,7 @@ contract InfinityMarketplaceTest is Test {
                 nftContract: address(erc721),
                 tokenId: TOKEN_ID,
                 amount: 1,
-                price: PRICE,
+                pricePerUnit: PRICE,
                 offerType: InfinityMarketplace.OfferType.Sell
             })
         );
@@ -196,7 +196,7 @@ contract InfinityMarketplaceTest is Test {
         // Accept offer
         uint256 aliceInitialBalance = alice.balance;
         vm.prank(bob);
-        marketplace.acceptOffer{value: PRICE}(offerHash);
+        marketplace.acceptOffer{value: PRICE}(offerHash, 1);
 
         // Verify state changes
         assertEq(erc721.ownerOf(TOKEN_ID), bob);
@@ -215,7 +215,7 @@ contract InfinityMarketplaceTest is Test {
                 nftContract: address(erc721),
                 tokenId: TOKEN_ID,
                 amount: 1,
-                price: PRICE,
+                pricePerUnit: PRICE,
                 offerType: InfinityMarketplace.OfferType.Buy
             })
         );
@@ -247,7 +247,7 @@ contract InfinityMarketplaceTest is Test {
                 nftContract: address(erc721),
                 tokenId: TOKEN_ID,
                 amount: 1,
-                price: PRICE,
+                pricePerUnit: PRICE,
                 offerType: InfinityMarketplace.OfferType.Sell
             })
         );
@@ -292,7 +292,7 @@ contract InfinityMarketplaceTest is Test {
                 nftContract: address(erc721),
                 tokenId: TOKEN_ID,
                 amount: 1,
-                price: PRICE,
+                pricePerUnit: PRICE,
                 offerType: InfinityMarketplace.OfferType.Buy
             })
         );
