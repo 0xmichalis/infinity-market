@@ -290,19 +290,21 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         }
 
         _sendValue(seller, offer.pricePerUnit * amount);
-        _transferNFT(offer, buyer, deposit.nftType);
+        _transferNFT(offer, buyer, deposit.nftType, amount);
 
-        if (offerAmount == 0) {
+        if (offerAmount - amount == 0) {
             delete offers[offerHash];
         }
     }
 
-    function _transferNFT(Offer storage offer, address to, NFTType nftType) internal {
+    function _transferNFT(Offer storage offer, address to, NFTType nftType, uint256 amount)
+        internal
+    {
         if (nftType == NFTType.ERC721) {
             IERC721(offer.nftContract).safeTransferFrom(address(this), to, offer.tokenId);
         } else {
             IERC1155(offer.nftContract).safeTransferFrom(
-                address(this), to, offer.tokenId, offer.amount, ""
+                address(this), to, offer.tokenId, amount, ""
             );
         }
     }
