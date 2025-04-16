@@ -279,19 +279,21 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         uint256 amount
     ) internal {
         Deposit storage deposit = deposits[seller][offer.nftContract][offer.tokenId];
-        require(deposit.balance >= amount, InsufficientDeposit());
-        require(offer.amount >= amount, InsufficientOfferAmount());
+        uint256 depositBalance = deposit.balance;
+        require(depositBalance >= amount, InsufficientDeposit());
+        uint256 offerAmount = offer.amount;
+        require(offerAmount >= amount, InsufficientOfferAmount());
 
         unchecked {
             // we just checked these above
-            deposit.balance -= amount;
-            offer.amount -= amount;
+            deposit.balance = depositBalance - amount;
+            offer.amount = offerAmount - amount;
         }
 
         _sendValue(seller, offer.pricePerUnit * amount);
         _transferNFT(offer, buyer, deposit.nftType);
 
-        if (offer.amount == 0) {
+        if (offerAmount == 0) {
             delete offers[offerHash];
         }
     }
