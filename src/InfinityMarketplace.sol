@@ -25,6 +25,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     error NotOfferCreator();
     error PaymentFailed();
     error OfferAlreadyExists();
+    error NotSellOffer();
 
     /// @notice Enum to represent the type of NFT
     enum NFTType {
@@ -118,9 +119,8 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     /**
      * @notice Cancels an offer
      * @param offerHash The hash of the offer
+     * @dev For buy offers, returns the ETH to the maker. For sell offers, only removes the offer.
      */
-    // TODO: Consider whether NFT transfers should happen here.
-    // May be best to provide a cancelOfferAndWithdrawNFT function that does both.
     function cancelOffer(bytes32 offerHash) external nonReentrant {
         Offer memory offer = offers[offerHash];
         require(offer.maker == msg.sender, NotOfferCreator());
@@ -129,19 +129,26 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
 
         if (offer.offerType == OfferType.Buy) {
             _sendValue(offer.maker, offer.pricePerUnit * offer.amount);
-        } else {
-            Deposit storage deposit = deposits[offer.maker][offer.nftContract][offer.tokenId];
-            deposit.balance -= offer.amount;
-            if (deposit.nftType == NFTType.ERC721) {
-                IERC721(offer.nftContract).safeTransferFrom(
-                    address(this), offer.maker, offer.tokenId
-                );
-            } else {
-                IERC1155(offer.nftContract).safeTransferFrom(
-                    address(this), offer.maker, offer.tokenId, offer.amount, ""
-                );
-            }
         }
+
+        emit OfferCancelled(offerHash);
+    }
+
+    /**
+     * @notice Cancels a sell offer and withdraws the NFTs
+     * @param offerHash The hash of the offer
+     * @dev Only works for sell offers. Removes the offer and returns the NFTs to the maker.
+     */
+    function cancelOfferAndWithdrawNFT(bytes32 offerHash) external nonReentrant {
+        Offer memory offer = offers[offerHash];
+        require(offer.maker == msg.sender, NotOfferCreator());
+        require(offer.offerType == OfferType.Sell, NotSellOffer());
+
+        delete offers[offerHash];
+
+        Deposit storage deposit = deposits[offer.maker][offer.nftContract][offer.tokenId];
+        deposit.balance -= offer.amount;
+        _transferNFT(offer, offer.maker, deposit.nftType, offer.amount);
 
         emit OfferCancelled(offerHash);
     }
@@ -300,7 +307,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         }
     }
 
-    function _transferNFT(Offer storage offer, address to, NFTType nftType, uint256 amount)
+    function _transferNFT(Offer memory offer, address to, NFTType nftType, uint256 amount)
         internal
     {
         if (nftType == NFTType.ERC721) {
