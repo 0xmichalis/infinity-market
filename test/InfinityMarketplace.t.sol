@@ -96,6 +96,39 @@ contract InfinityMarketplaceTest is Test {
         }
     }
 
+    function test_MultipleERC1155Deposits() public {
+        // First deposit of 5 tokens
+        vm.startPrank(alice);
+        erc1155.mint(alice, TOKEN_ID, 5);
+        erc1155.safeTransferFrom(alice, address(marketplace), TOKEN_ID, 5, "");
+
+        // Verify first deposit
+        (uint256 balanceAfterFirst, InfinityMarketplace.NFTType nftType) =
+            marketplace.deposits(alice, address(erc1155), TOKEN_ID);
+        assertEq(balanceAfterFirst, 5);
+        assertEq(uint256(nftType), uint256(InfinityMarketplace.NFTType.ERC1155));
+
+        // Second deposit of 3 more tokens
+        erc1155.mint(alice, TOKEN_ID, 3);
+        erc1155.safeTransferFrom(alice, address(marketplace), TOKEN_ID, 3, "");
+        vm.stopPrank();
+
+        // The deposits mapping should be updated to:
+        // balanceAfterFirst + 3 = 8 tokens total
+        (uint256 finalBalance, InfinityMarketplace.NFTType finalType) =
+            marketplace.deposits(alice, address(erc1155), TOKEN_ID);
+        assertEq(finalBalance, 8, "Deposit balance should be sum of both deposits");
+        assertEq(uint256(finalType), uint256(InfinityMarketplace.NFTType.ERC1155));
+
+        // Verify actual token balances
+        assertEq(erc1155.balanceOf(alice, TOKEN_ID), 0, "Alice should have no tokens left");
+        assertEq(
+            erc1155.balanceOf(address(marketplace), TOKEN_ID),
+            8,
+            "Marketplace should have all tokens"
+        );
+    }
+
     function test_CreateBuyOffer() public {
         vm.startPrank(bob);
 

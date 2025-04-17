@@ -256,8 +256,9 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         uint256 value,
         bytes calldata
     ) public override returns (bytes4) {
-        // TODO: Support adding balances to existing deposits
-        deposits[from][msg.sender][tokenId] = Deposit({balance: value, nftType: NFTType.ERC1155});
+        Deposit storage deposit = deposits[from][msg.sender][tokenId];
+        deposit.nftType = NFTType.ERC1155;
+        deposit.balance += value;
 
         return IERC1155Receiver.onERC1155Received.selector;
     }
