@@ -66,7 +66,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     /// @notice Event emitted when a trade is executed
     event OfferSettled(bytes32 offerHash, uint256 amount);
 
-    /// @notice Mapping to track offers: contract => tokenId => offer details
+    /// @notice Mapping to track offers: offer hash => offer details
     mapping(bytes32 => Offer) public offers;
 
     /// @notice Mapping to track deposited token balances: owner => contract => tokenId => amount
