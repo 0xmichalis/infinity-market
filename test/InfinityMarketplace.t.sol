@@ -284,6 +284,31 @@ contract InfinityMarketplaceTest is Test {
         vm.stopPrank();
     }
 
+    function test_RevertWhen_CancelOfferAndWithdrawNFTByNonCreator() public {
+        // Create buy offer as Bob
+        vm.startPrank(bob);
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: bob,
+                nftContract: address(erc721),
+                tokenId: TOKEN_ID,
+                amount: 1,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Buy
+            })
+        );
+        marketplace.createOffer{value: PRICE}(
+            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+        );
+        vm.stopPrank();
+
+        // Try to cancel as Alice
+        vm.startPrank(alice);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.NotOfferCreator.selector));
+        marketplace.cancelOfferAndWithdrawNFT(offerHash);
+        vm.stopPrank();
+    }
+
     function test_CancelBuyOffer() public {
         // Create buy offer
         vm.startPrank(bob);
