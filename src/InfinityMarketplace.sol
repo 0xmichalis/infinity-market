@@ -76,7 +76,10 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @notice Creates a buy offer for a specific NFT
      * @param nftContract The address of the NFT contract
      * @param tokenId The ID of the token
-     * @param amount The amount of tokens (1 for ERC721)
+     * @param amount The amount of tokens. This should be 1 for ERC721, though it is not enforced
+     * by the contract. It will fail for sellers since they cannot hold a deposit of more than 1 of
+     * an ERC721. For buyers it will not fail but they can always cancel the offer to get the extra
+     * ETH back.
      * @param pricePerUnit The price per unit of the NFT
      * @param offerType The type of offer (Buy or Sell)
      */
@@ -191,7 +194,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @notice Withdraws deposited NFTs
      * @param nftContract The address of the NFT contract
      * @param tokenId The ID of the token
-     * @param amount The amount of tokens to withdraw. 1 for ERC721, amount for ERC1155
+     * @param amount The amount of tokens to withdraw
      */
     function withdrawNFT(address nftContract, uint256 tokenId, uint256 amount) external {
         Deposit memory deposit = deposits[msg.sender][nftContract][tokenId];

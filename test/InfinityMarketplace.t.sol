@@ -624,6 +624,57 @@ contract InfinityMarketplaceTest is Test {
         assertEq(erc1155.balanceOf(address(marketplace), TOKEN_ID), 5); // Remaining deposit
     }
 
+    function test_CancelRemainingERC721BuyOffer() public {
+        // Setup: Bob creates buy offer for 2 tokens by mistake (ERC721 should only be 1)
+        vm.startPrank(bob);
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: bob,
+                nftContract: address(erc721),
+                tokenId: TOKEN_ID,
+                amount: 2,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Buy
+            })
+        );
+        marketplace.createOffer{value: PRICE * 2}(
+            address(erc721), TOKEN_ID, 2, PRICE, InfinityMarketplace.OfferType.Buy
+        );
+        vm.stopPrank();
+
+        // Alice sells her single NFT
+        erc721.mint(alice, TOKEN_ID);
+        vm.startPrank(alice);
+        erc721.safeTransferFrom(alice, address(marketplace), TOKEN_ID);
+        uint256 aliceInitialBalance = alice.balance;
+        marketplace.acceptOffer(offerHash, 1);
+        vm.stopPrank();
+
+        // Verify first trade completed successfully
+        assertEq(erc721.ownerOf(TOKEN_ID), bob, "NFT should be transferred to Bob");
+        assertEq(
+            alice.balance, aliceInitialBalance + PRICE, "Alice should receive payment for 1 NFT"
+        );
+
+        // Verify offer still exists with remaining amount
+        (,,, uint256 remainingAmount,,) = marketplace.offers(offerHash);
+        assertEq(remainingAmount, 1, "Offer should have 1 token remaining");
+
+        // Bob cancels remaining offer to get back extra ETH
+        uint256 bobInitialBalance = bob.balance;
+        vm.prank(bob);
+        marketplace.cancelOffer(offerHash);
+
+        // Verify Bob got back remaining ETH
+        assertEq(
+            bob.balance, bobInitialBalance + PRICE, "Bob should receive refund for remaining token"
+        );
+
+        // Verify offer is deleted
+        (address maker,,,,,) = marketplace.offers(offerHash);
+        assertEq(maker, address(0), "Offer should be deleted");
+    }
+
     function test_RevertWhen_CancelOfferAndWithdrawOnBuyOffer() public {
         // Create buy offer
         vm.startPrank(bob);
