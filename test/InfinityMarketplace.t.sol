@@ -292,6 +292,69 @@ contract InfinityMarketplaceTest is Test {
         vm.stopPrank();
     }
 
+    function test_CreateCollectionOffer() public {
+        vm.startPrank(bob);
+
+        bytes32 expectedOfferHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: bob,
+                nftContract: address(erc721),
+                tokenId: 0, // zero indicates a collection offer
+                amount: 5,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Buy
+            })
+        );
+
+        marketplace.createCollectionOffer{value: PRICE * 5}(address(erc721), 5, PRICE);
+        vm.stopPrank();
+
+        // Verify offer
+        (
+            address maker,
+            address nftContract,
+            uint256 tokenId,
+            uint256 amount,
+            uint256 pricePerUnit,
+            InfinityMarketplace.OfferType offerType
+        ) = marketplace.offers(expectedOfferHash);
+
+        assertEq(maker, bob);
+        assertEq(nftContract, address(erc721));
+        assertEq(tokenId, 0);
+        assertEq(amount, 5);
+        assertEq(pricePerUnit, PRICE);
+        assertEq(uint256(offerType), uint256(InfinityMarketplace.OfferType.Buy));
+    }
+
+    function test_RevertWhen_CreateCollectionOfferWithoutPayment() public {
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.MissingPayment.selector));
+        marketplace.createCollectionOffer(address(erc721), 5, PRICE);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_CreateCollectionOfferWithInvalidContract() public {
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidNFTContract.selector));
+        marketplace.createCollectionOffer{value: PRICE * 5}(address(0), 5, PRICE);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_CreateCollectionOfferWithZeroAmount() public {
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidAmount.selector));
+        marketplace.createCollectionOffer{value: 0}(address(erc721), 0, PRICE);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_CreateCollectionOfferWithZeroPrice() public {
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidPrice.selector));
+        marketplace.createCollectionOffer{value: 0}(address(erc721), 5, 0);
+        vm.stopPrank();
+    }
+
     function test_RevertWhen_CancelOfferByNonCreator() public {
         // Create buy offer as Bob
         vm.startPrank(bob);
@@ -559,7 +622,7 @@ contract InfinityMarketplaceTest is Test {
         );
 
         // Try to cancel and withdraw - should fail
-        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.NotSellOffer.selector));
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidOfferType.selector));
         marketplace.cancelOfferAndWithdrawNFT(offerHash);
         vm.stopPrank();
     }
@@ -997,5 +1060,172 @@ contract InfinityMarketplaceTest is Test {
         assertEq(alice.balance, aliceInitialBalance + PRICE * 6, "ETH balance not transferred");
         (balance,) = marketplace.deposits(alice, address(erc1155), TOKEN_ID);
         assertEq(balance, 1, "Deposit should reflect settled offer");
+    }
+
+    function test_AcceptCollectionOffer() public {
+        // Setup: Create collection offer from Bob
+        vm.startPrank(bob);
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: bob,
+                nftContract: address(erc721),
+                tokenId: 0,
+                amount: 5,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Buy
+            })
+        );
+        marketplace.createCollectionOffer{value: PRICE * 5}(address(erc721), 5, PRICE);
+        vm.stopPrank();
+
+        // Setup: Alice deposits multiple NFTs
+        vm.startPrank(alice);
+        for (uint256 i = 1; i <= 3; i++) {
+            erc721.mint(alice, i);
+            erc721.safeTransferFrom(alice, address(marketplace), i);
+        }
+
+        // Accept offer for both tokens at once
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1;
+        amounts[1] = 1;
+
+        uint256 aliceInitialBalance = alice.balance;
+        marketplace.acceptCollectionOffer(offerHash, tokenIds, amounts);
+        vm.stopPrank();
+
+        // Verify state changes
+        assertEq(erc721.ownerOf(1), bob);
+        assertEq(erc721.ownerOf(2), bob);
+        assertEq(erc721.ownerOf(3), address(marketplace));
+        assertEq(alice.balance, aliceInitialBalance + PRICE * 2);
+
+        // Verify deposits are updated
+        for (uint256 i = 1; i <= 2; i++) {
+            (uint256 balance,) = marketplace.deposits(alice, address(erc721), i);
+            assertEq(balance, 0);
+        }
+        (uint256 balance3,) = marketplace.deposits(alice, address(erc721), 3);
+        assertEq(balance3, 1);
+
+        // Verify offer is updated
+        (,,, uint256 remainingAmount,,) = marketplace.offers(offerHash);
+        assertEq(remainingAmount, 3, "Remaining amount should be 3 (5 initial - 2 accepted)");
+    }
+
+    function test_AcceptCollectionOfferERC1155() public {
+        // Setup: Create collection offer from Bob
+        vm.startPrank(bob);
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: bob,
+                nftContract: address(erc1155),
+                tokenId: 0,
+                amount: 10,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Buy
+            })
+        );
+        marketplace.createCollectionOffer{value: PRICE * 10}(address(erc1155), 10, PRICE);
+        vm.stopPrank();
+
+        // Setup: Alice deposits multiple ERC1155s
+        vm.startPrank(alice);
+        erc1155.mint(alice, 1, 5);
+        erc1155.mint(alice, 2, 8);
+        erc1155.safeTransferFrom(alice, address(marketplace), 1, 5, "");
+        erc1155.safeTransferFrom(alice, address(marketplace), 2, 8, "");
+
+        // Accept offer for both tokens at once
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 3;
+        amounts[1] = 4;
+
+        uint256 aliceInitialBalance = alice.balance;
+        marketplace.acceptCollectionOffer(offerHash, tokenIds, amounts);
+        vm.stopPrank();
+
+        // Verify state changes
+        assertEq(erc1155.balanceOf(bob, 1), 3);
+        assertEq(erc1155.balanceOf(bob, 2), 4);
+        assertEq(alice.balance, aliceInitialBalance + PRICE * 7);
+
+        // Verify deposits are updated
+        (uint256 balance1,) = marketplace.deposits(alice, address(erc1155), 1);
+        assertEq(balance1, 2);
+        (uint256 balance2,) = marketplace.deposits(alice, address(erc1155), 2);
+        assertEq(balance2, 4);
+
+        // Verify offer is updated
+        (,,, uint256 remainingAmount,,) = marketplace.offers(offerHash);
+        assertEq(remainingAmount, 3, "Remaining amount should be 3 (10 initial - (3 + 4) accepted)");
+    }
+
+    function test_RevertWhen_AcceptCollectionOfferWithMismatchedArrays() public {
+        // Setup: Create collection offer
+        vm.startPrank(bob);
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: bob,
+                nftContract: address(erc721),
+                tokenId: 0,
+                amount: 5,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Buy
+            })
+        );
+        marketplace.createCollectionOffer{value: PRICE * 5}(address(erc721), 5, PRICE);
+        vm.stopPrank();
+
+        // Try to accept with mismatched arrays
+        vm.startPrank(alice);
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidAmounts.selector));
+        marketplace.acceptCollectionOffer(offerHash, tokenIds, amounts);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_AcceptCollectionOfferOnSellOffer() public {
+        // Setup: Create sell offer
+        erc721.mint(alice, TOKEN_ID);
+        vm.startPrank(alice);
+        erc721.safeTransferFrom(alice, address(marketplace), TOKEN_ID);
+
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: alice,
+                nftContract: address(erc721),
+                tokenId: TOKEN_ID,
+                amount: 1,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Sell
+            })
+        );
+        marketplace.createOffer(
+            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+        );
+        vm.stopPrank();
+
+        // Try to accept sell offer using acceptCollectionOffer
+        vm.startPrank(bob);
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = TOKEN_ID;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidOfferType.selector));
+        marketplace.acceptCollectionOffer(offerHash, tokenIds, amounts);
+        vm.stopPrank();
     }
 }
