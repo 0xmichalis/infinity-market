@@ -159,7 +159,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @param tokenId The ID of the token
      * @param amount The amount of tokens to withdraw. 1 for ERC721, amount for ERC1155
      */
-    // TODO: Should not work once a sell offer is created?
     function withdrawNFT(address nftContract, uint256 tokenId, uint256 amount) external {
         Deposit memory deposit = deposits[msg.sender][nftContract][tokenId];
         require(deposit.balance >= amount, InsufficientDeposit());

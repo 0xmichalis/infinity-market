@@ -907,4 +907,95 @@ contract InfinityMarketplaceTest is Test {
         (address maker,,,,,) = marketplace.offers(offerHash);
         assertEq(maker, address(mockContractWithoutReceive), "Offer was removed");
     }
+
+    function test_RevertWhen_AcceptOfferAfterWithdrawal() public {
+        // Setup: Alice deposits NFT and creates sell offer
+        erc721.mint(alice, TOKEN_ID);
+        vm.startPrank(alice);
+        erc721.safeTransferFrom(alice, address(marketplace), TOKEN_ID);
+
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: alice,
+                nftContract: address(erc721),
+                tokenId: TOKEN_ID,
+                amount: 1,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Sell
+            })
+        );
+        marketplace.createOffer(
+            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+        );
+
+        // Alice withdraws the NFT
+        marketplace.withdrawNFT(address(erc721), TOKEN_ID, 1);
+        vm.stopPrank();
+
+        // Bob tries to accept the offer
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InsufficientDeposit.selector));
+        marketplace.acceptOffer{value: PRICE}(offerHash, 1);
+
+        // Verify state remains unchanged
+        assertEq(erc721.ownerOf(TOKEN_ID), alice, "NFT ownership should remain with Alice");
+        (uint256 balance,) = marketplace.deposits(alice, address(erc721), TOKEN_ID);
+        assertEq(balance, 0, "Deposit should remain empty");
+        (address maker,,,,,) = marketplace.offers(offerHash);
+        assertEq(maker, alice, "Offer should still exist");
+    }
+
+    function test_RevertWhen_AcceptOfferAfterPartialWithdrawalERC1155() public {
+        // Setup: Alice deposits 10 ERC1155 tokens and creates sell offer for 8
+        vm.startPrank(alice);
+        erc1155.mint(alice, TOKEN_ID, 10);
+        erc1155.safeTransferFrom(alice, address(marketplace), TOKEN_ID, 10, "");
+
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: alice,
+                nftContract: address(erc1155),
+                tokenId: TOKEN_ID,
+                amount: 8,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Sell
+            })
+        );
+        marketplace.createOffer(
+            address(erc1155), TOKEN_ID, PRICE, 8, InfinityMarketplace.OfferType.Sell
+        );
+
+        // Alice withdraws 3 tokens, leaving only 7 (less than offer amount)
+        marketplace.withdrawNFT(address(erc1155), TOKEN_ID, 3);
+        vm.stopPrank();
+
+        // Bob tries to accept the offer
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InsufficientDeposit.selector));
+        marketplace.acceptOffer{value: PRICE * 8}(offerHash, 8);
+
+        // Verify state remains unchanged
+        assertEq(erc1155.balanceOf(alice, TOKEN_ID), 3, "Alice should have withdrawn tokens");
+        assertEq(
+            erc1155.balanceOf(address(marketplace), TOKEN_ID),
+            7,
+            "Marketplace should have remaining tokens"
+        );
+        (uint256 balance,) = marketplace.deposits(alice, address(erc1155), TOKEN_ID);
+        assertEq(balance, 7, "Deposit should reflect withdrawal");
+        (address maker,,,,,) = marketplace.offers(offerHash);
+        assertEq(maker, alice, "Offer should still exist");
+
+        uint256 aliceInitialBalance = alice.balance;
+
+        // Bob tries to accept 6 tokens
+        vm.prank(bob);
+        marketplace.acceptOffer{value: PRICE * 6}(offerHash, 6);
+
+        // Verify updated state
+        assertEq(erc1155.balanceOf(bob, TOKEN_ID), 6, "ERC1155 balance not transferred");
+        assertEq(alice.balance, aliceInitialBalance + PRICE * 6, "ETH balance not transferred");
+        (balance,) = marketplace.deposits(alice, address(erc1155), TOKEN_ID);
+        assertEq(balance, 1, "Deposit should reflect settled offer");
+    }
 }
