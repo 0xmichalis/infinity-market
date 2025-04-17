@@ -182,7 +182,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @param amount The amount of tokens to accept
      */
     function acceptOffer(bytes32 offerHash, uint256 amount) external payable nonReentrant {
-        Offer storage offer = offers[offerHash];
+        Offer memory offer = offers[offerHash];
 
         if (offer.offerType == OfferType.Buy) {
             require(msg.value == 0, UnnecessaryPayment());
@@ -278,7 +278,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     }
 
     function _acceptOffer(
-        Offer storage offer,
+        Offer memory offer,
         bytes32 offerHash,
         address seller,
         address buyer,
@@ -293,15 +293,15 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         unchecked {
             // we just checked these above
             deposit.balance = depositBalance - amount;
-            offer.amount = offerAmount - amount;
+            if (offerAmount - amount == 0) {
+                delete offers[offerHash];
+            } else {
+                offers[offerHash].amount = offerAmount - amount;
+            }
         }
 
         _sendValue(seller, offer.pricePerUnit * amount);
         _transferNFT(offer.nftContract, offer.tokenId, amount, deposit.nftType, buyer);
-
-        if (offerAmount - amount == 0) {
-            delete offers[offerHash];
-        }
     }
 
     function _transferNFT(
