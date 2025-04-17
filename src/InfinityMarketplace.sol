@@ -148,7 +148,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
 
         Deposit storage deposit = deposits[offer.maker][offer.nftContract][offer.tokenId];
         deposit.balance -= offer.amount;
-        _transferNFT(offer, offer.maker, deposit.nftType, offer.amount);
+        _transferNFT(offer.nftContract, offer.tokenId, offer.amount, deposit.nftType, offer.maker);
 
         emit OfferCancelled(offerHash);
     }
@@ -173,11 +173,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
             }
         }
 
-        if (deposit.nftType == NFTType.ERC721) {
-            IERC721(nftContract).safeTransferFrom(address(this), msg.sender, tokenId);
-        } else {
-            IERC1155(nftContract).safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
-        }
+        _transferNFT(nftContract, tokenId, amount, deposit.nftType, msg.sender);
     }
 
     /**
@@ -301,22 +297,24 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         }
 
         _sendValue(seller, offer.pricePerUnit * amount);
-        _transferNFT(offer, buyer, deposit.nftType, amount);
+        _transferNFT(offer.nftContract, offer.tokenId, amount, deposit.nftType, buyer);
 
         if (offerAmount - amount == 0) {
             delete offers[offerHash];
         }
     }
 
-    function _transferNFT(Offer memory offer, address to, NFTType nftType, uint256 amount)
-        internal
-    {
+    function _transferNFT(
+        address nftContract,
+        uint256 tokenId,
+        uint256 amount,
+        NFTType nftType,
+        address to
+    ) internal {
         if (nftType == NFTType.ERC721) {
-            IERC721(offer.nftContract).safeTransferFrom(address(this), to, offer.tokenId);
+            IERC721(nftContract).safeTransferFrom(address(this), to, tokenId);
         } else {
-            IERC1155(offer.nftContract).safeTransferFrom(
-                address(this), to, offer.tokenId, amount, ""
-            );
+            IERC1155(nftContract).safeTransferFrom(address(this), to, tokenId, amount, "");
         }
     }
 
