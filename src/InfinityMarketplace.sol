@@ -76,15 +76,15 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @notice Creates a buy offer for a specific NFT
      * @param nftContract The address of the NFT contract
      * @param tokenId The ID of the token
-     * @param pricePerUnit The price per unit of the NFT
      * @param amount The amount of tokens (1 for ERC721)
+     * @param pricePerUnit The price per unit of the NFT
      * @param offerType The type of offer (Buy or Sell)
      */
     function createOffer(
         address nftContract,
         uint256 tokenId,
-        uint256 pricePerUnit,
         uint256 amount,
+        uint256 pricePerUnit,
         OfferType offerType
     ) external payable {
         require(nftContract != address(0), InvalidNFTContract());

@@ -144,7 +144,7 @@ contract InfinityMarketplaceTest is Test {
         );
 
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
         vm.stopPrank();
 
@@ -184,7 +184,7 @@ contract InfinityMarketplaceTest is Test {
         );
 
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
         vm.stopPrank();
 
@@ -210,7 +210,7 @@ contract InfinityMarketplaceTest is Test {
         vm.startPrank(bob);
         vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.MissingPayment.selector));
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
         vm.stopPrank();
     }
@@ -219,7 +219,7 @@ contract InfinityMarketplaceTest is Test {
         vm.startPrank(alice);
         vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InsufficientDeposit.selector));
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
         vm.stopPrank();
     }
@@ -227,7 +227,7 @@ contract InfinityMarketplaceTest is Test {
     function test_RevertWhen_CreateOfferWithZeroPrice() public {
         vm.startPrank(bob);
         vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidPrice.selector));
-        marketplace.createOffer(address(erc721), TOKEN_ID, 0, 1, InfinityMarketplace.OfferType.Buy);
+        marketplace.createOffer(address(erc721), TOKEN_ID, 1, 0, InfinityMarketplace.OfferType.Buy);
         vm.stopPrank();
     }
 
@@ -235,7 +235,7 @@ contract InfinityMarketplaceTest is Test {
         vm.startPrank(bob);
         vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidAmount.selector));
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 0, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 0, PRICE, InfinityMarketplace.OfferType.Buy
         );
         vm.stopPrank();
     }
@@ -244,7 +244,7 @@ contract InfinityMarketplaceTest is Test {
         vm.startPrank(bob);
         vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidNFTContract.selector));
         marketplace.createOffer{value: PRICE}(
-            address(0), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(0), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
         vm.stopPrank();
     }
@@ -258,7 +258,7 @@ contract InfinityMarketplaceTest is Test {
         // Try to create sell offer with payment
         vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.UnnecessaryPayment.selector));
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
         vm.stopPrank();
     }
@@ -271,7 +271,7 @@ contract InfinityMarketplaceTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InsufficientDeposit.selector));
         marketplace.createOffer(
-            address(erc1155), TOKEN_ID, PRICE, 2, InfinityMarketplace.OfferType.Sell
+            address(erc1155), TOKEN_ID, 2, PRICE, InfinityMarketplace.OfferType.Sell
         );
         vm.stopPrank();
     }
@@ -280,14 +280,23 @@ contract InfinityMarketplaceTest is Test {
         // Create initial buy offer
         vm.startPrank(bob);
         marketplace.createOffer{value: PRICE * 2}(
-            address(erc721), TOKEN_ID, PRICE, 2, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 2, PRICE, InfinityMarketplace.OfferType.Buy
         );
 
         // Try to create the same offer again - this can cause loss of funds
         // if not handled correctly.
         vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.OfferAlreadyExists.selector));
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
+        );
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_CreateOfferWithZeroTokenId() public {
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidTokenId.selector));
+        marketplace.createOffer{value: PRICE}(
+            address(erc721), 0, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
         vm.stopPrank();
     }
@@ -325,6 +334,17 @@ contract InfinityMarketplaceTest is Test {
         assertEq(amount, 5);
         assertEq(pricePerUnit, PRICE);
         assertEq(uint256(offerType), uint256(InfinityMarketplace.OfferType.Buy));
+    }
+
+    function test_RevertWhen_CreateDuplicateCollectionOffer() public {
+        vm.startPrank(bob);
+        // Create initial collection offer
+        marketplace.createCollectionOffer{value: PRICE * 5}(address(erc721), 5, PRICE);
+
+        // Try to create the same collection offer again
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.OfferAlreadyExists.selector));
+        marketplace.createCollectionOffer{value: PRICE * 5}(address(erc721), 5, PRICE);
+        vm.stopPrank();
     }
 
     function test_RevertWhen_CreateCollectionOfferWithoutPayment() public {
@@ -369,7 +389,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
         vm.stopPrank();
 
@@ -394,7 +414,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
         vm.stopPrank();
 
@@ -419,7 +439,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
 
         uint256 bobInitialBalance = bob.balance;
@@ -451,7 +471,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
 
         // Cancel offer
@@ -483,7 +503,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
 
         // Cancel offer and withdraw
@@ -517,7 +537,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc1155), TOKEN_ID, PRICE, 5, InfinityMarketplace.OfferType.Sell
+            address(erc1155), TOKEN_ID, 5, PRICE, InfinityMarketplace.OfferType.Sell
         );
 
         // Cancel offer
@@ -570,7 +590,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc1155), TOKEN_ID, PRICE, 5, InfinityMarketplace.OfferType.Sell
+            address(erc1155), TOKEN_ID, 5, PRICE, InfinityMarketplace.OfferType.Sell
         );
 
         // Cancel offer and withdraw
@@ -618,7 +638,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
 
         // Try to cancel and withdraw - should fail
@@ -723,7 +743,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc1155), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc1155), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
         vm.stopPrank();
 
@@ -754,7 +774,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
         vm.stopPrank();
 
@@ -782,7 +802,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
         vm.stopPrank();
 
@@ -813,7 +833,7 @@ contract InfinityMarketplaceTest is Test {
 
         vm.prank(bob);
         marketplace.createOffer{value: PRICE}(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Buy
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
         );
 
         // Accept offer
@@ -846,7 +866,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
         vm.stopPrank();
 
@@ -883,7 +903,7 @@ contract InfinityMarketplaceTest is Test {
         );
         vm.prank(bob);
         marketplace.createOffer{value: PRICE * 2}(
-            address(erc1155), TOKEN_ID, PRICE, 2, InfinityMarketplace.OfferType.Buy
+            address(erc1155), TOKEN_ID, 2, PRICE, InfinityMarketplace.OfferType.Buy
         );
 
         // Try to accept offer - should fail because Alice only has 1 token
@@ -912,7 +932,7 @@ contract InfinityMarketplaceTest is Test {
         );
         vm.prank(bob);
         marketplace.createOffer{value: PRICE * offerAmount}(
-            address(erc1155), TOKEN_ID, PRICE, offerAmount, InfinityMarketplace.OfferType.Buy
+            address(erc1155), TOKEN_ID, offerAmount, PRICE, InfinityMarketplace.OfferType.Buy
         );
 
         // Accept offer
@@ -952,7 +972,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
         vm.stopPrank();
 
@@ -988,7 +1008,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
 
         // Alice withdraws the NFT
@@ -1025,7 +1045,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc1155), TOKEN_ID, PRICE, 8, InfinityMarketplace.OfferType.Sell
+            address(erc1155), TOKEN_ID, 8, PRICE, InfinityMarketplace.OfferType.Sell
         );
 
         // Alice withdraws 3 tokens, leaving only 7 (less than offer amount)
@@ -1213,7 +1233,7 @@ contract InfinityMarketplaceTest is Test {
             })
         );
         marketplace.createOffer(
-            address(erc721), TOKEN_ID, PRICE, 1, InfinityMarketplace.OfferType.Sell
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Sell
         );
         vm.stopPrank();
 
