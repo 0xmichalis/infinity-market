@@ -106,10 +106,10 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
             offerType: offerType
         });
         bytes32 offerHash = getOfferHash(offer);
-        // Require canceling an existing offer before recreating it.
-        // This can happen if the user wants to change the amount of the offer.
-        // TODO: Create a function specific to this use case to avoid having
-        // to cancel and recreate the offer.
+        // It's important to avoid duplicate offers which can cause loss of funds.
+        // I guess the main use case here is for a user to change the amount of ERC1155
+        // tokens they want to buy or sell at the same price. May be worth to add a
+        // separate function to change the amount of an existing offer.
         require(offers[offerHash].maker == address(0), OfferAlreadyExists());
         offers[offerHash] = offer;
 
@@ -260,6 +260,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         uint256 value,
         bytes calldata
     ) public override returns (bytes4) {
+        // TODO: Support adding balances to existing deposits
         deposits[from][msg.sender][tokenId] = Deposit({balance: value, nftType: NFTType.ERC1155});
 
         return IERC1155Receiver.onERC1155Received.selector;
