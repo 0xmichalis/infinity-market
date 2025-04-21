@@ -176,16 +176,14 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @param offerHash The hash of the offer
      * @dev Only works for sell offers. Removes the offer and returns the NFTs to the maker.
      */
-    function cancelOfferAndWithdrawNFT(bytes32 offerHash) external nonReentrant {
+    function cancelOfferAndWithdrawNFT(bytes32 offerHash) external {
         Offer memory offer = offers[offerHash];
         require(offer.maker == msg.sender, NotOfferCreator());
         require(offer.offerType == OfferType.Sell, InvalidOfferType());
 
         delete offers[offerHash];
 
-        Deposit storage deposit = deposits[offer.maker][offer.nftContract][offer.tokenId];
-        deposit.balance -= offer.amount;
-        _transferNFT(offer.nftContract, offer.tokenId, offer.amount, deposit.nftType, offer.maker);
+        withdrawNFT(offer.nftContract, offer.tokenId, offer.amount);
 
         emit OfferCancelled(offerHash);
     }
@@ -196,7 +194,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      * @param tokenId The ID of the token
      * @param amount The amount of tokens to withdraw
      */
-    function withdrawNFT(address nftContract, uint256 tokenId, uint256 amount) external {
+    function withdrawNFT(address nftContract, uint256 tokenId, uint256 amount) public {
         Deposit memory deposit = deposits[msg.sender][nftContract][tokenId];
         require(deposit.balance >= amount, InsufficientDeposit());
 
