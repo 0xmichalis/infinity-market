@@ -26,8 +26,8 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     error PaymentFailed();
     error OfferAlreadyExists();
     error InvalidOfferType();
-    error InvalidTokenId();
     error InvalidAmounts();
+    error InvalidCollectionOffer();
 
     /// @notice Enum to represent the type of NFT
     enum NFTType {
@@ -49,6 +49,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         uint256 amount;
         uint256 pricePerUnit;
         OfferType offerType;
+        bool isCollectionOffer;
     }
 
     /// @notice Struct to store deposit details
@@ -93,7 +94,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         require(nftContract != address(0), InvalidNFTContract());
         require(amount != 0, InvalidAmount());
         require(pricePerUnit != 0, InvalidPrice());
-        require(tokenId != 0, InvalidTokenId());
         if (offerType == OfferType.Buy) {
             require(pricePerUnit * amount == msg.value, MissingPayment());
         } else {
@@ -109,7 +109,8 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
             tokenId: tokenId,
             amount: amount,
             pricePerUnit: pricePerUnit,
-            offerType: offerType
+            offerType: offerType,
+            isCollectionOffer: false
         });
         bytes32 offerHash = getOfferHash(offer);
         // It's important to avoid duplicate offers which can cause loss of funds.
@@ -140,10 +141,11 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         Offer memory offer = Offer({
             maker: msg.sender,
             nftContract: nftContract,
-            tokenId: 0, // zero indicates a collection offer
+            tokenId: 0,
             amount: amount,
             pricePerUnit: pricePerUnit,
-            offerType: OfferType.Buy
+            offerType: OfferType.Buy,
+            isCollectionOffer: true
         });
         bytes32 offerHash = getOfferHash(offer);
         // It's important to avoid duplicate offers which can cause loss of funds.
@@ -217,6 +219,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
      */
     function acceptOffer(bytes32 offerHash, uint256 amount) external payable nonReentrant {
         Offer memory offer = offers[offerHash];
+        require(!offer.isCollectionOffer, InvalidCollectionOffer());
 
         if (offer.offerType == OfferType.Buy) {
             require(msg.value == 0, UnnecessaryPayment());
@@ -241,6 +244,7 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
         uint256[] calldata amounts
     ) external nonReentrant {
         Offer memory offer = offers[offerHash];
+        require(offer.isCollectionOffer, InvalidCollectionOffer());
         require(offer.offerType == OfferType.Buy, InvalidOfferType());
         require(tokenIds.length == amounts.length, InvalidAmounts());
 

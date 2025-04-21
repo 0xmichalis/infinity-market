@@ -139,7 +139,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
 
@@ -155,7 +156,8 @@ contract InfinityMarketplaceTest is Test {
             uint256 tokenId,
             uint256 amount,
             uint256 pricePerUnit,
-            InfinityMarketplace.OfferType offerType
+            InfinityMarketplace.OfferType offerType,
+            bool isCollectionOffer
         ) = marketplace.offers(expectedOfferHash);
 
         assertEq(maker, bob);
@@ -164,6 +166,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(amount, 1);
         assertEq(pricePerUnit, PRICE);
         assertEq(uint256(offerType), uint256(InfinityMarketplace.OfferType.Buy));
+        assertEq(isCollectionOffer, false);
     }
 
     function test_CreateSellOffer() public {
@@ -179,7 +182,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
 
@@ -195,7 +199,8 @@ contract InfinityMarketplaceTest is Test {
             uint256 tokenId,
             uint256 amount,
             uint256 pricePerUnit,
-            InfinityMarketplace.OfferType offerType
+            InfinityMarketplace.OfferType offerType,
+            bool isCollectionOffer
         ) = marketplace.offers(expectedOfferHash);
 
         assertEq(maker, alice);
@@ -204,6 +209,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(amount, 1);
         assertEq(pricePerUnit, PRICE);
         assertEq(uint256(offerType), uint256(InfinityMarketplace.OfferType.Sell));
+        assertEq(isCollectionOffer, false);
     }
 
     function test_RevertWhen_CreateBuyOfferWithoutPayment() public {
@@ -292,15 +298,6 @@ contract InfinityMarketplaceTest is Test {
         vm.stopPrank();
     }
 
-    function test_RevertWhen_CreateOfferWithZeroTokenId() public {
-        vm.startPrank(bob);
-        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidTokenId.selector));
-        marketplace.createOffer{value: PRICE}(
-            address(erc721), 0, 1, PRICE, InfinityMarketplace.OfferType.Buy
-        );
-        vm.stopPrank();
-    }
-
     function test_CreateCollectionOffer() public {
         vm.startPrank(bob);
 
@@ -311,7 +308,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: 0, // zero indicates a collection offer
                 amount: 5,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: true
             })
         );
 
@@ -325,7 +323,8 @@ contract InfinityMarketplaceTest is Test {
             uint256 tokenId,
             uint256 amount,
             uint256 pricePerUnit,
-            InfinityMarketplace.OfferType offerType
+            InfinityMarketplace.OfferType offerType,
+            bool isCollectionOffer
         ) = marketplace.offers(expectedOfferHash);
 
         assertEq(maker, bob);
@@ -334,6 +333,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(amount, 5);
         assertEq(pricePerUnit, PRICE);
         assertEq(uint256(offerType), uint256(InfinityMarketplace.OfferType.Buy));
+        assertEq(isCollectionOffer, true);
     }
 
     function test_RevertWhen_CreateDuplicateCollectionOffer() public {
@@ -385,7 +385,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer{value: PRICE}(
@@ -410,7 +411,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer{value: PRICE}(
@@ -435,7 +437,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer{value: PRICE}(
@@ -450,7 +453,7 @@ contract InfinityMarketplaceTest is Test {
         // Verify state changes
         assertEq(bob.balance, bobInitialBalance + PRICE);
 
-        (address maker,,,,,) = marketplace.offers(offerHash);
+        (address maker,,,,,,) = marketplace.offers(offerHash);
         assertEq(maker, address(0));
     }
 
@@ -467,7 +470,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -482,7 +486,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(erc721.ownerOf(TOKEN_ID), address(marketplace));
         (uint256 balance,) = marketplace.deposits(alice, address(erc721), TOKEN_ID);
         assertEq(balance, 1);
-        (address maker,,,,,) = marketplace.offers(offerHash);
+        (address maker,,,,,,) = marketplace.offers(offerHash);
         assertEq(maker, address(0));
     }
 
@@ -499,7 +503,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -514,7 +519,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(erc721.ownerOf(TOKEN_ID), alice);
         (uint256 balance,) = marketplace.deposits(alice, address(erc721), TOKEN_ID);
         assertEq(balance, 0);
-        (address maker,,,,,) = marketplace.offers(offerHash);
+        (address maker,,,,,,) = marketplace.offers(offerHash);
         assertEq(maker, address(0));
     }
 
@@ -533,7 +538,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 5,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -557,7 +563,8 @@ contract InfinityMarketplaceTest is Test {
             uint256 offerTokenId,
             uint256 offerAmount,
             uint256 offerPrice,
-            InfinityMarketplace.OfferType offerType
+            InfinityMarketplace.OfferType offerType,
+            bool isCollectionOffer
         ) = marketplace.offers(offerHash);
         assertEq(offerMaker, address(0));
         assertEq(offerNftContract, address(0));
@@ -565,6 +572,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(offerAmount, 0);
         assertEq(offerPrice, 0);
         assertEq(uint8(offerType), 0);
+        assertEq(isCollectionOffer, false);
 
         // Verify tokens remain in marketplace
         assertEq(erc1155.balanceOf(alice, TOKEN_ID), 0);
@@ -586,7 +594,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 5,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -610,7 +619,8 @@ contract InfinityMarketplaceTest is Test {
             uint256 offerTokenId,
             uint256 offerAmount,
             uint256 offerPrice,
-            InfinityMarketplace.OfferType offerType
+            InfinityMarketplace.OfferType offerType,
+            bool isCollectionOffer
         ) = marketplace.offers(offerHash);
         assertEq(offerMaker, address(0));
         assertEq(offerNftContract, address(0));
@@ -618,6 +628,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(offerAmount, 0);
         assertEq(offerPrice, 0);
         assertEq(uint8(offerType), 0);
+        assertEq(isCollectionOffer, false);
 
         // Verify tokens are split between Alice and marketplace
         assertEq(erc1155.balanceOf(alice, TOKEN_ID), 5); // Tokens from cancelled offer
@@ -634,7 +645,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 2,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer{value: PRICE * 2}(
@@ -657,7 +669,7 @@ contract InfinityMarketplaceTest is Test {
         );
 
         // Verify offer still exists with remaining amount
-        (,,, uint256 remainingAmount,,) = marketplace.offers(offerHash);
+        (,,, uint256 remainingAmount,,,) = marketplace.offers(offerHash);
         assertEq(remainingAmount, 1, "Offer should have 1 token remaining");
 
         // Bob cancels remaining offer to get back extra ETH
@@ -671,7 +683,7 @@ contract InfinityMarketplaceTest is Test {
         );
 
         // Verify offer is deleted
-        (address maker,,,,,) = marketplace.offers(offerHash);
+        (address maker,,,,,,) = marketplace.offers(offerHash);
         assertEq(maker, address(0), "Offer should be deleted");
     }
 
@@ -685,7 +697,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer{value: PRICE}(
@@ -777,6 +790,41 @@ contract InfinityMarketplaceTest is Test {
         vm.stopPrank();
     }
 
+    function test_RevertWhen_AcceptOfferWithCollectionAccept() public {
+        // Setup: Create regular buy offer from Bob
+        vm.startPrank(bob);
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: bob,
+                nftContract: address(erc721),
+                tokenId: TOKEN_ID,
+                amount: 1,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
+            })
+        );
+        marketplace.createOffer{value: PRICE}(
+            address(erc721), TOKEN_ID, 1, PRICE, InfinityMarketplace.OfferType.Buy
+        );
+        vm.stopPrank();
+
+        // Setup: Alice deposits NFT
+        erc721.mint(alice, TOKEN_ID);
+        vm.startPrank(alice);
+        erc721.safeTransferFrom(alice, address(marketplace), TOKEN_ID);
+
+        // Try to accept regular offer using collection accept - should fail
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = TOKEN_ID;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidCollectionOffer.selector));
+        marketplace.acceptCollectionOffer(offerHash, tokenIds, amounts);
+        vm.stopPrank();
+    }
+
     function test_RevertWhen_AcceptOfferWithInvalidAmount() public {
         // Setup: Alice deposits NFT and creates sell offer
         erc1155.mint(alice, TOKEN_ID, 2);
@@ -790,7 +838,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -821,7 +870,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer{value: PRICE}(
@@ -849,7 +899,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -878,7 +929,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
 
@@ -913,7 +965,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -949,7 +1002,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 2,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
         vm.prank(bob);
@@ -978,7 +1032,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: offerAmount,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: false
             })
         );
         vm.prank(bob);
@@ -1019,7 +1074,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -1038,7 +1094,7 @@ contract InfinityMarketplaceTest is Test {
         (uint256 balance,) =
             marketplace.deposits(address(mockContractWithoutReceive), address(erc721), TOKEN_ID);
         assertEq(balance, 1, "Deposit changed");
-        (address maker,,,,,) = marketplace.offers(offerHash);
+        (address maker,,,,,,) = marketplace.offers(offerHash);
         assertEq(maker, address(mockContractWithoutReceive), "Offer was removed");
     }
 
@@ -1055,7 +1111,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -1075,7 +1132,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(erc721.ownerOf(TOKEN_ID), alice, "NFT ownership should remain with Alice");
         (uint256 balance,) = marketplace.deposits(alice, address(erc721), TOKEN_ID);
         assertEq(balance, 0, "Deposit should remain empty");
-        (address maker,,,,,) = marketplace.offers(offerHash);
+        (address maker,,,,,,) = marketplace.offers(offerHash);
         assertEq(maker, alice, "Offer should still exist");
     }
 
@@ -1092,7 +1149,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 8,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -1117,7 +1175,7 @@ contract InfinityMarketplaceTest is Test {
         );
         (uint256 balance,) = marketplace.deposits(alice, address(erc1155), TOKEN_ID);
         assertEq(balance, 7, "Deposit should reflect withdrawal");
-        (address maker,,,,,) = marketplace.offers(offerHash);
+        (address maker,,,,,,) = marketplace.offers(offerHash);
         assertEq(maker, alice, "Offer should still exist");
 
         uint256 aliceInitialBalance = alice.balance;
@@ -1143,7 +1201,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: 0,
                 amount: 5,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: true
             })
         );
         marketplace.createCollectionOffer{value: PRICE * 5}(address(erc721), 5, PRICE);
@@ -1183,7 +1242,7 @@ contract InfinityMarketplaceTest is Test {
         assertEq(balance3, 1);
 
         // Verify offer is updated
-        (,,, uint256 remainingAmount,,) = marketplace.offers(offerHash);
+        (,,, uint256 remainingAmount,,,) = marketplace.offers(offerHash);
         assertEq(remainingAmount, 3, "Remaining amount should be 3 (5 initial - 2 accepted)");
     }
 
@@ -1197,7 +1256,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: 0,
                 amount: 10,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: true
             })
         );
         marketplace.createCollectionOffer{value: PRICE * 10}(address(erc1155), 10, PRICE);
@@ -1234,8 +1294,36 @@ contract InfinityMarketplaceTest is Test {
         assertEq(balance2, 4);
 
         // Verify offer is updated
-        (,,, uint256 remainingAmount,,) = marketplace.offers(offerHash);
+        (,,, uint256 remainingAmount,,,) = marketplace.offers(offerHash);
         assertEq(remainingAmount, 3, "Remaining amount should be 3 (10 initial - (3 + 4) accepted)");
+    }
+
+    function test_RevertWhen_AcceptCollectionOfferWithRegularAccept() public {
+        // Setup: Create collection offer from Bob
+        vm.startPrank(bob);
+        bytes32 offerHash = marketplace.getOfferHash(
+            InfinityMarketplace.Offer({
+                maker: bob,
+                nftContract: address(erc721),
+                tokenId: 0,
+                amount: 5,
+                pricePerUnit: PRICE,
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: true
+            })
+        );
+        marketplace.createCollectionOffer{value: PRICE * 5}(address(erc721), 5, PRICE);
+        vm.stopPrank();
+
+        // Setup: Alice deposits NFT
+        erc721.mint(alice, TOKEN_ID);
+        vm.startPrank(alice);
+        erc721.safeTransferFrom(alice, address(marketplace), TOKEN_ID);
+
+        // Try to accept collection offer using regular accept - should fail
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidCollectionOffer.selector));
+        marketplace.acceptOffer(offerHash, 1);
+        vm.stopPrank();
     }
 
     function test_RevertWhen_AcceptCollectionOfferWithMismatchedArrays() public {
@@ -1248,7 +1336,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: 0,
                 amount: 5,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Buy
+                offerType: InfinityMarketplace.OfferType.Buy,
+                isCollectionOffer: true
             })
         );
         marketplace.createCollectionOffer{value: PRICE * 5}(address(erc721), 5, PRICE);
@@ -1280,7 +1369,8 @@ contract InfinityMarketplaceTest is Test {
                 tokenId: TOKEN_ID,
                 amount: 1,
                 pricePerUnit: PRICE,
-                offerType: InfinityMarketplace.OfferType.Sell
+                offerType: InfinityMarketplace.OfferType.Sell,
+                isCollectionOffer: false
             })
         );
         marketplace.createOffer(
@@ -1295,7 +1385,7 @@ contract InfinityMarketplaceTest is Test {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
 
-        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidOfferType.selector));
+        vm.expectRevert(abi.encodeWithSelector(InfinityMarketplace.InvalidCollectionOffer.selector));
         marketplace.acceptCollectionOffer(offerHash, tokenIds, amounts);
         vm.stopPrank();
     }
