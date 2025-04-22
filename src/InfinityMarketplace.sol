@@ -245,7 +245,6 @@ contract InfinityMarketplace is IERC721Receiver, IERC1155Receiver, ReentrancyGua
     ) external nonReentrant {
         Offer memory offer = offers[offerHash];
         require(offer.isCollectionOffer, InvalidCollectionOffer());
-        require(offer.offerType == OfferType.Buy, InvalidOfferType());
         require(tokenIds.length == amounts.length, InvalidAmounts());
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
